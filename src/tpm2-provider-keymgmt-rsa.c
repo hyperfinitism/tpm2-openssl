@@ -567,6 +567,8 @@ tpm2_rsa_keymgmt_export(void *keydata, int selection,
 {
     TPM2_PKEY *pkey = (TPM2_PKEY *)keydata;
     UINT32 exponent;
+    unsigned char e_buf[sizeof(UINT32)];
+    int e_buf_len = 0;
     int ok = 1;
 
     DBG("RSA EXPORT %x\n", selection);
@@ -594,8 +596,31 @@ tpm2_rsa_keymgmt_export(void *keydata, int selection,
                                        n, pkey->data.pub.publicArea.unique.rsa.size);
 #endif
         exponent = pkey_get_rsa_exp(pkey);
+        /* Convert exponent to proper native-endian BN representation.
+         * OSSL_PARAM_construct_BN expects native-endian, but a raw UINT32
+         * may have trailing zero bytes that confuse BN parsing. Use the
+         * same BN approach as for get_params to ensure correctness.
+         */
+        {
+            BIGNUM *e_bn = BN_new();
+            if (e_bn == NULL) {
+#if !defined(WORDS_BIGENDIAN)
+                OPENSSL_free(n);
+#endif
+                return 0;
+            }
+            BN_set_word(e_bn, exponent);
+            e_buf_len = BN_bn2nativepad(e_bn, e_buf, BN_num_bytes(e_bn));
+            BN_free(e_bn);
+            if (e_buf_len < 0) {
+#if !defined(WORDS_BIGENDIAN)
+                OPENSSL_free(n);
+#endif
+                return 0;
+            }
+        }
         *p++ = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_E,
-                                     (unsigned char *)&exponent, sizeof(exponent));
+                                     e_buf, e_buf_len);
     }
     *p = OSSL_PARAM_construct_end();
 

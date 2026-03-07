@@ -53,7 +53,7 @@ tpm2_handle_open(void *provctx, const char *uri)
     if ((opts = strchr(baseuri, '?')) != NULL) {
         *opts = 0;
 
-        if (!strncmp(opts+1, "pass", 4))
+        if (!strcmp(opts+1, "pass"))
             ctx->has_pass = 1;
         else
             goto error2;

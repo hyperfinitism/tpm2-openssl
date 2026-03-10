@@ -322,6 +322,12 @@ error3:
 error2:
     tpm2_semaphore_unlock(gen->esys_lock);
 error1:
+    if (parent != ESYS_TR_NONE) {
+        if (gen->parentHandle && gen->parentHandle != TPM2_RH_OWNER)
+            Esys_TR_Close(gen->esys_ctx, &parent);
+        else
+            Esys_FlushContext(gen->esys_ctx, parent);
+    }
     OPENSSL_clear_free(pkey, sizeof(TPM2_PKEY));
     return NULL;
 }

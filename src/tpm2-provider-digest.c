@@ -302,10 +302,12 @@ tpm2_digest_digest_int(void *provctx, TPM2_ALG_ID algin, const unsigned char *in
     *outl = digest->size;
     if (out != NULL) {
         if (*outl > outsz)
-            return 0;
+            goto error;
         memcpy(out, digest->buffer, *outl);
     }
 
+    free(digest);
+    OPENSSL_clear_free(hctx, sizeof(TPM2_HASH_SEQUENCE));
     return 1;
 error:
     free(digest);

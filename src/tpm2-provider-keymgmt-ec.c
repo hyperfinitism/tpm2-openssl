@@ -245,7 +245,7 @@ tpm2_ec_keymgmt_gen(void *ctx, OSSL_CALLBACK *cb, void *cbarg)
     TPML_PCR_SELECTION creation_pcr = { .count = 0 };
 
     if (!tpm2_semaphore_lock(gen->esys_lock))
-        return 0;
+        goto error1;
     /* older TPM2 chips do not support Esys_CreateLoaded */
     r = Esys_Create(gen->esys_ctx, parent,
                     ESYS_TR_PASSWORD, ESYS_TR_NONE, ESYS_TR_NONE,
@@ -279,6 +279,12 @@ error2:
     Esys_FlushContext(gen->esys_ctx, pkey->object);
 error1:
     tpm2_semaphore_unlock(gen->esys_lock);
+    if (parent != ESYS_TR_NONE) {
+        if (gen->parentHandle && gen->parentHandle != TPM2_RH_OWNER)
+            Esys_TR_Close(gen->esys_ctx, &parent);
+        else
+            Esys_FlushContext(gen->esys_ctx, parent);
+    }
     OPENSSL_clear_free(pkey, sizeof(TPM2_PKEY));
     return NULL;
 }
